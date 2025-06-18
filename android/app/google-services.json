@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "905878709786",
+    "project_id": "obatku-c9d40",
+    "storage_bucket": "obatku-c9d40.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:905878709786:android:9d594f99b2e6308ef653a3",
+        "android_client_info": {
+          "package_name": "com.example.obatku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcvq-gZTtws4UCxji3GIY0jqxrJ6cT0nk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
