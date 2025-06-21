@@ -54,17 +54,6 @@ class _HomePageState extends State<HomePage> {
                             child: const Icon(Icons.nightlight_round, size: 28),
                           ),
                           const SizedBox(width: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.all(6),
-                            child: const Icon(
-                              Icons.notifications_none,
-                              size: 28,
-                            ),
-                          ),
                         ],
                       ),
                     ],

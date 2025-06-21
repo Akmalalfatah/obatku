@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart' show Distance, LatLng, LengthUnit;
+import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
 
 class Pharmacy {
   final String name;
@@ -22,7 +24,7 @@ class MapsPage extends StatefulWidget {
 }
 
 class _MapsPageState extends State<MapsPage> {
-  final LatLng _defaultLocation = LatLng(-6.2922, 106.7982);
+  LatLng? _currentLocation;
   bool _isLoading = true;
   String _error = '';
   List<Pharmacy> _pharmacies = [];
@@ -30,53 +32,72 @@ class _MapsPageState extends State<MapsPage> {
   @override
   void initState() {
     super.initState();
-    _loadPharmacies();
+    _determinePosition();
   }
 
-  Future<void> _loadPharmacies() async {
-    final url =
-        'https://overpass-api.de/api/interpreter?data=[out:json];'
-        'node["amenity"="pharmacy"]'
-        '(around:10000,${_defaultLocation.latitude},${_defaultLocation.longitude});out;';
+  Future<void> _determinePosition() async {
     try {
-      final res = await http.get(Uri.parse(url));
-      final data = jsonDecode(res.body);
-      final Distance dist = Distance();
-      final List<Pharmacy> list = [];
-
-      for (var e in data['elements']) {
-        final lat = e['lat'];
-        final lon = e['lon'];
-        final name = e['tags']?['name'] ?? 'Apotek';
-        final d = dist.as(
-          LengthUnit.Kilometer,
-          _defaultLocation,
-          LatLng(lat, lon),
-        );
-
-        if (d <= 10) {
-          list.add(
-            Pharmacy(name: name, position: LatLng(lat, lon), distance: d),
-          );
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _error = 'Permission denied');
+          return;
         }
       }
 
-      list.sort((a, b) => a.distance.compareTo(b.distance));
+      Position pos = await Geolocator.getCurrentPosition();
+      _currentLocation = LatLng(pos.latitude, pos.longitude);
+      _loadPharmacies();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    }
+  }
+
+  Future<void> _loadPharmacies() async {
+    if (_currentLocation == null) return;
+
+    final url =
+        'https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"="pharmacy"](around:10000,${_currentLocation!.latitude},${_currentLocation!.longitude});out;';
+
+    try {
+      final res = await http.get(Uri.parse(url));
+      final result = await compute(parsePharmacyData, {
+        'body': res.body,
+        'lat': _currentLocation!.latitude,
+        'lon': _currentLocation!.longitude,
+      });
 
       if (mounted) {
         setState(() {
-          _pharmacies = list;
+          _pharmacies = result;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
+      if (mounted) setState(() => _error = e.toString());
+    }
+  }
+
+  static List<Pharmacy> parsePharmacyData(Map<String, dynamic> args) {
+    final data = jsonDecode(args['body']);
+    final center = LatLng(args['lat'], args['lon']);
+    final Distance dist = Distance();
+    final List<Pharmacy> pharmacies = [];
+
+    for (var e in data['elements']) {
+      final lat = e['lat'];
+      final lon = e['lon'];
+      final name = e['tags']?['name'] ?? 'Apotek';
+      final d = dist.as(LengthUnit.Kilometer, center, LatLng(lat, lon));
+      if (d <= 10) {
+        pharmacies.add(
+          Pharmacy(name: name, position: LatLng(lat, lon), distance: d),
+        );
       }
     }
+    pharmacies.sort((a, b) => a.distance.compareTo(b.distance));
+    return pharmacies;
   }
 
   @override
@@ -85,19 +106,12 @@ class _MapsPageState extends State<MapsPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Stack(
         children: [
-          _buildMapView(),
-          Positioned(top: 20, left: 20, right: 20, child: _buildSearchBar()),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _buildPharmacyPanel(),
-          ),
+          _currentLocation != null ? _buildMapView() : SizedBox(),
           if (_isLoading) Center(child: CircularProgressIndicator()),
           if (_error.isNotEmpty)
             Center(
@@ -106,6 +120,11 @@ class _MapsPageState extends State<MapsPage> {
                 style: TextStyle(color: Colors.red),
               ),
             ),
+          Positioned(top: 20, left: 20, right: 20, child: _buildSearchBar()),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _buildPharmacyPanel(),
+          ),
         ],
       ),
     );
@@ -113,7 +132,7 @@ class _MapsPageState extends State<MapsPage> {
 
   Widget _buildMapView() {
     return FlutterMap(
-      options: MapOptions(initialCenter: _defaultLocation, initialZoom: 13.0),
+      options: MapOptions(initialCenter: _currentLocation!, initialZoom: 13.0),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -122,12 +141,12 @@ class _MapsPageState extends State<MapsPage> {
         MarkerLayer(
           markers: [
             Marker(
-              point: _defaultLocation,
+              point: _currentLocation!,
               width: 40,
               height: 40,
               child: Icon(Icons.my_location, color: Colors.blue),
             ),
-            for (var p in _pharmacies)
+            for (var p in _pharmacies.take(20))
               Marker(
                 point: p.position,
                 width: 50,
@@ -188,7 +207,6 @@ class _MapsPageState extends State<MapsPage> {
               itemBuilder: (context, index) {
                 final p = _pharmacies[index];
                 final isOpen = p.name.toLowerCase().contains('24');
-
                 return Card(
                   margin: EdgeInsets.only(bottom: 14),
                   child: ListTile(

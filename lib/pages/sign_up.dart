@@ -18,9 +18,19 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
   final bool _obscureText = true;
 
   Future<void> registeruser() async {
+    // Check if passwords match
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      return;
+    }
+
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(
@@ -121,8 +131,19 @@ class _SignUpState extends State<SignUp> {
                     hintText: 'Password',
                     obscureText: _obscureText,
                   ),
+                  const SizedBox(height: 24),
+                  // Confirm Password
+                  MyTextfield(
+                    label: '',
+                    icon: _obscureText
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    controller: confirmPasswordController,
+                    hintText: 'Confirm Password',
+                    obscureText: _obscureText,
+                  ),
                   const SizedBox(height: 32),
-                  // Sign Up button (utama)
+                  // Sign Up button
                   LargeButton(
                     text: 'Sign Up',
                     onTap: registeruser,

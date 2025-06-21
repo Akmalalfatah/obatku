@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:obatku/firebase_options.dart';
-import 'package:obatku/auth/login_or_signup.dart';
+import 'package:obatku/pages/splash_screen.dart';
+import 'package:obatku/pages/upload_medicines.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await MedicineUploader.uploadMedicines();
   runApp(const MyApp());
 }
 
@@ -48,7 +50,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'ObatKu',
       debugShowCheckedModeBanner: false,
-      home: const LoginOrRegister(),
+      home: const SplashScreen(),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:obatku/components/stateless_widgets/medicine_component_list.dart';
 import 'package:obatku/components/stateless_widgets/square_medicine_placeholder.dart';
+import 'package:obatku/components/stateless_widgets/medicine.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -11,11 +12,26 @@ class ExplorePage extends StatefulWidget {
 
 class _ExplorePageState extends State<ExplorePage> {
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final medicines = MedicineComponentList.medicines;
-
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -26,7 +42,6 @@ class _ExplorePageState extends State<ExplorePage> {
         ),
         backgroundColor: Colors.transparent,
       ),
-
       backgroundColor: const Color(0xFFE8E5FA),
       body: SingleChildScrollView(
         child: Padding(
@@ -53,20 +68,11 @@ class _ExplorePageState extends State<ExplorePage> {
                         child: const Icon(Icons.nightlight_round, size: 28),
                       ),
                       const SizedBox(width: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.all(6),
-                        child: const Icon(Icons.notifications_none, size: 28),
-                      ),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -93,12 +99,31 @@ class _ExplorePageState extends State<ExplorePage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 24),
-
-              Container(
-                child: Center(
-                  child: GridView.count(
+              FutureBuilder<List<Medicine>>(
+                future: MedicineComponentList.getMedicines(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                    return const Center(child: Text('No medicines found'));
+                  }
+                  final medicines = snapshot.data!
+                      .where(
+                        (medicine) =>
+                            medicine.title.toLowerCase().contains(_searchQuery),
+                      )
+                      .toList();
+                  if (medicines.isEmpty) {
+                    return const Center(
+                      child: Text('No matching medicines found'),
+                    );
+                  }
+                  return GridView.count(
                     crossAxisCount: 2,
                     crossAxisSpacing: 21,
                     mainAxisSpacing: 21,
@@ -110,8 +135,8 @@ class _ExplorePageState extends State<ExplorePage> {
                         index: index,
                       );
                     }),
-                  ),
-                ),
+                  );
+                },
               ),
             ],
           ),
